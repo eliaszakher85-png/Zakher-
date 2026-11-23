@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zakher Rewards - منصة المكافآت</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: #0f172a; color: #f8fafc; padding: 16px; }
+    .container { max-width: 520px; margin: 0 auto; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+    h1, h2, h3 { margin: 0 0 10px; }
+    .muted { color: #94a3b8; font-size: 14px; }
+    input, select, button {
+      width: 100%; padding: 12px; margin-top: 8px; border-radius: 10px;
+      border: 1px solid #475569; font-size: 15px;
+    }
+    input, select { background: #0f172a; color: #f8fafc; }
+    button {
+      background: #10b981; color: #052e16; font-weight: 700; border: none; cursor: pointer;
+    }
+    button.secondary { background: #334155; color: #f8fafc; }
+    .balance { font-size: 28px; font-weight: 800; color: #34d399; margin: 6px 0; }
+    .offer-item { border: 1px solid #334155; border-radius: 12px; padding: 12px; margin-top: 10px; background: #0f172a; }
+    .badge { display: inline-block; background: #064e3b; color: #6ee7b7; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+    .msg { margin-top: 10px; padding: 10px; border-radius: 10px; background: #172554; color: #bfdbfe; font-size: 14px; }
+    .hidden { display: none; }
+    .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="row-between">
+        <div>
+          <h1>Zakher Rewards</h1>
+          <div class="muted">إتمام المهام والعروض وكسب النقاط</div>
+        </div>
+        <button id="logoutBtn" class="secondary hidden" style="width:auto; padding:8px 14px; margin:0;">خروج</button>
+      </div>
+    </div>
+
+    <!-- قسم تسجيل الدخول / إنشاء حساب -->
+    <div id="authSection" class="card">
+      <h2>الدخول أو إنشاء حساب</h2>
+      <input id="emailInput" type="email" placeholder="البريد الإلكتروني" />
+      <input id="passwordInput" type="password" placeholder="كلمة المرور (6 أحرف فأكثر)" />
+      <button id="loginBtn">تسجيل الدخول</button>
+      <button id="signupBtn" class="secondary">إنشاء حساب جديد</button>
+      <div id="authMsg" class="msg hidden"></div>
+    </div>
+
+    <!-- قسم لوحة المستخدم -->
+    <div id="appSection" class="hidden">
+      <div class="card">
+        <div class="muted">رصيدك الحالي</div>
+        <div id="coinsBalance" class="balance">0 Coins</div>
+        <div id="userEmail" class="muted"></div>
+      </div>
+
+      <div class="card">
+        <h3>العروض المتاحة</h3>
+        <div id="offersList"><div class="muted">جاري تحميل العروض...</div></div>
+      </div>
+
+      <div class="card">
+        <h3>طلب سحب الأرباح</h3>
+        <select id="withdrawMethod">
+          <option value="PayPal">PayPal</option>
+          <option value="Revolut">Revolut</option>
+          <option value="Gift Card">بطاقة هدايا (Gift Card)</option>
+        </select>
+        <input id="withdrawAccount" type="text" placeholder="إيميل السحب أو رقم الحساب / المعرف" />
+        <input id="withdrawCoins" type="number" min="100" step="1" placeholder="عدد النقاط المطلوب سحبها (مثلاً 500)" />
+        <button id="withdrawBtn">إرسال طلب السحب</button>
+        <div id="withdrawMsg" class="msg hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://iqbarahbgeaorgsqblpm.supabase.co";
+    const SUPABASE_KEY = "Sb_publishable_dq1fSGdCCrpj1c35_vwtUA_fKdwQd1m";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const authSection = document.getElementById("authSection");
+    const appSection = document.getElementById("appSection");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const authMsg = document.getElementById("authMsg");
+    const withdrawMsg = document.getElementById("withdrawMsg");
+
+    function showBox(el, text) {
+      el.textContent = text;
+      el.classList.remove("hidden");
+    }
+
+    document.getElementById("loginBtn").onclick = async () => {
+      const email = document.getElementById("emailInput").value.trim();
+      const password = document.getElementById("passwordInput").value;
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) showBox(authMsg, "خطأ في الدخول: " + error.message);
+    };
+
+    document.getElementById("signupBtn").onclick = async () => {
+      const email = document.getElementById("emailInput").value.trim();
+      const password = document.getElementById("passwordInput").value;
+      const { error } = await sb.auth.signUp({ email, password });
+      if (error) {
+        showBox(authMsg, "خطأ في التسجيل: " + error.message);
+      } else {
+        showBox(authMsg, "تم إنشاء الحساب! تحقق من بريدك إذا طُلب تأكيد، ثم سجل الدخول.");
+      }
+    };
+
+    logoutBtn.onclick = async () => {
+      await sb.auth.signOut();
+    };
+
+    async function loadDashboard(user) {
+      authSection.classList.add("hidden");
+      appSection.classList.remove("hidden");
+      logoutBtn.classList.remove("hidden");
+      document.getElementById("userEmail").textContent = "الحساب: " + user.email;
+
+      const { data: profile } = await sb
+        .from("profiles")
+        .select("coins")
+        .eq("id", user.id)
+        .single();
+
+      const coins = profile ? Number(profile.coins) : 0;
+      document.getElementById("coinsBalance").textContent = `${coins} Coins`;
+
+      const { data: offers, error: offersErr } = await sb
+        .from("offers")
+        .select("*")
+        .eq("is_active", true);
+
+      const offersList = document.getElementById("offersList");
+      if (offersErr || !offers || offers.length === 0) {
+        offersList.innerHTML = `<div class="muted">لا توجد عروض مضافة حالياً في جدول offers.</div>`;
+      } else {
+        offersList.innerHTML = offers.map(o => `
+          <div class="offer-item">
+            <div class="row-between">
+              <strong>${o.title}</strong>
+              <span class="badge">+${o.reward_coins} Coins</span>
+            </div>
+            <div class="muted" style="margin-top:6px;">${o.description || ""}</div>
+            <a href="${o.offer_url}?subid=${encodeURIComponent(user.id)}" target="_blank" rel="noopener"
+               style="display:block; text-align:center; background:#2563eb; color:#fff; text-decoration:none; padding:10px; border-radius:8px; margin-top:10px; font-weight:700;">
+              ابدأ العرض الآن
+            </a>
+          </div>
+        `).join("");
+      }
+    }
+
+    document.getElementById("withdrawBtn").onclick = async () => {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return;
+      const method = document.getElementById("withdrawMethod").value;
+      const account_details = document.getElementById("withdrawAccount").value.trim();
+      const coins_amount = Number(document.getElementById("withdrawCoins").value);
+
+      if (!account_details || !coins_amount || coins_amount <= 0) {
+        showBox(withdrawMsg, "يرجى إدخال بيانات الحساب وعدد النقاط بشكل صحيح.");
+        return;
+      }
+
+      const { error } = await sb.from("withdrawals").insert({
+        user_id: user.id,
+        method,
+        account_details,
+        coins_amount
+      });
+
+      if (error) {
+        showBox(withdrawMsg, "تعذر إرسال الطلب: " + error.message);
+      } else {
+        showBox(withdrawMsg, "تم تسجيل طلب السحب بنجاح وسيتم مراجعته.");
+        document.getElementById("withdrawAccount").value = "";
+        document.getElementById("withdrawCoins").value = "";
+      }
+    };
+
+    sb.auth.onAuthStateChange((_event, session) => {
+      if (session && session.user) {
+        loadDashboard(session.user);
+      } else {
+        authSection.classList.remove("hidden");
+        appSection.classList.add("hidden");
+        logoutBtn.classList.add("hidden");
+      }
+    });
+  </script>
+</body>
+</html>

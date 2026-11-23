@@ -134,27 +134,44 @@
 
       const { data: offers, error: offersErr } = await sb
         .from("offers")
-        .select("*")
-        .eq("is_active", true);
+        .select("*");
 
       const offersList = document.getElementById("offersList");
-      if (offersErr || !offers || offers.length === 0) {
+
+      if (offersErr) {
+        offersList.innerHTML = `<div class="muted">خطأ في جلب العروض: ${offersErr.message}</div>`;
+        return;
+      }
+
+      const activeOffers = (offers || []).filter(o =>
+        o.is_active === undefined || o.is_active === null ? true : Boolean(o.is_active)
+      );
+
+      if (activeOffers.length === 0) {
         offersList.innerHTML = `<div class="muted">لا توجد عروض مضافة حالياً في جدول offers.</div>`;
-      } else {
-        offersList.innerHTML = offers.map(o => `
+        return;
+      }
+
+      offersList.innerHTML = activeOffers.map(o => {
+        const reward = o.reward_coins ?? o.coins ?? 0;
+        const rawUrl = o.offer_url || o.url || "#";
+        const separator = rawUrl.includes("?") ? "&" : "?";
+        const finalUrl = rawUrl === "#" ? "#" : `${rawUrl}${separator}subid=${encodeURIComponent(user.id)}`;
+
+        return `
           <div class="offer-item">
             <div class="row-between">
-              <strong>${o.title}</strong>
-              <span class="badge">+${o.reward_coins} Coins</span>
+              <strong>${o.title || "عرض بدون عنوان"}</strong>
+              <span class="badge">+${reward} Coins</span>
             </div>
             <div class="muted" style="margin-top:6px;">${o.description || ""}</div>
-            <a href="${o.offer_url}?subid=${encodeURIComponent(user.id)}" target="_blank" rel="noopener"
+            <a href="${finalUrl}" target="_blank" rel="noopener"
                style="display:block; text-align:center; background:#2563eb; color:#fff; text-decoration:none; padding:10px; border-radius:8px; margin-top:10px; font-weight:700;">
               ابدأ العرض الآن
             </a>
           </div>
-        `).join("");
-      }
+        `;
+      }).join("");
     }
 
     document.getElementById("withdrawBtn").onclick = async () => {
